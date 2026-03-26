@@ -113,6 +113,18 @@ GET http://localhost:4000/test
 GET http://localhost:4000/hello
 
 
+### Admin Register
+POST http://localhost:4000/admin-api/register
+Content-Type: application/json
+
+{
+  "firstName": "Super",
+  "lastName": "Admin",
+  "email": "admin@gmail.com",
+  "password": "admin",
+  "profileImageUrl": "https://example.com/avatars/admin.png"
+}
+
 ### Admin login
 POST http://localhost:4000/common-api/login
 Content-Type: application/json
@@ -125,12 +137,14 @@ Content-Type: application/json
 ### read articles
 GET http://localhost:4000/admin-api/articles
 
-### Block user
-POST http://localhost:4000/admin-api/block/698ab2dce1f9b15d0991ff2b
+### Get all users
+GET http://localhost:4000/admin-api/users
 
+### Block user
+PATCH http://localhost:4000/admin-api/block/698ab2dce1f9b15d0991ff2b
 
 ### Unblock user
-POST http://localhost:4000/admin-api/unblock/698ab2dce1f9b15d0991ff2b
+PATCH http://localhost:4000/admin-api/unblock/698ab2dce1f9b15d0991ff2b
 
 
 ###

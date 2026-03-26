@@ -1,12 +1,10 @@
-import exp from 'express'
-export const commonRouter =exp.Router()
-import { authenticate } from '../services/authService.js'
-import jwt from 'jsonwebtoken'
-import { UserTypeModel } from '../models/UserModel.js'
-import { hash,compare } from 'bcryptjs'
-
-
-import { ArticleModel } from '../models/ArticleModel.js'
+import express from 'express';
+export const commonRouter = express.Router();
+import { authenticate } from '../Services/authService.js';
+import jwt from 'jsonwebtoken';
+import { UserTypeModel } from '../models/UserModel.js';
+import bcrypt from 'bcryptjs';
+import { ArticleModel } from '../models/ArticleModel.js';
 
 // Get public articles
 commonRouter.get('/articles', async (req, res) => {
@@ -28,54 +26,70 @@ commonRouter.get('/articles/:articleId', async (req, res) => {
     }
 });
 
-//login
-commonRouter.post('/login',async(req,res)=>{
-    let userCred=req.body
-        //authenticate the user
-        let {token,user}=await authenticate(userCred)
-        res.cookie("token",token,{
-            httpOnly:true,
-            sameSite:"lax",
-            secure:false
-        })
-        //send 
-        res.status(200).json({message:"login Successfull",payload:user})
-})
-
-
-//logout
-// commonRouter.get('/')
-commonRouter.get('/logout',(req,res)=>{
-    res.clearCookie('token',{
-        httpOnly:true, //Must Match original settings
-        secure:false,  //Must Match original settings
-        sameSite:"lax"  //Must Match original settings
-    })
-    res.status(200).json({message:"logout successfull"})
-})
-
-
-//Change Password
-commonRouter.put('/change-password',async(req,res)=>{
-    //get current password and new password
-    let {email,currentPassword,newPassword}=req.body
-    //check if user present or not
-    let userObj=await UserTypeModel.findOne({email:email})
-    if(!userObj){
-        return res.status(401).json({message:"User not found"})
+// Login
+commonRouter.post('/login', async (req, res) => {
+    try {
+        let userCred = req.body;
+        let { token, user } = await authenticate(userCred);
+        res.cookie("token", token, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false
+        });
+        res.status(200).json({ message: "Login Successful", payload: user });
+    } catch (err) {
+        res.status(err.status || 500).json({ message: "Login failed", error: err.message });
     }
-    //check current password is correct or not
-    let isMatched=await compare(currentPassword,userObj.password)
-    if(!isMatched){
-        return res.status(401).json({message:"old Password is InValid"})
+});
+
+// Logout
+commonRouter.get('/logout', (req, res) => {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax"
+    });
+    res.status(200).json({ message: "Logout successful" });
+});
+
+// Check Auth status
+commonRouter.get('/check-auth', async (req, res) => {
+    try {
+        const token = req.cookies.token;
+        if (!token) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        
+        // Fetch full user data (excluding password)
+        const user = await UserTypeModel.findById(decodedToken.userId).select("-password");
+        if (!user) {
+            return res.status(401).json({ message: "User not found" });
+        }
+        
+        res.status(200).json({ message: "Authenticated", payload: user });
+    } catch (err) {
+        res.status(401).json({ message: "Invalid or expired token", error: err.message });
     }
-    //if matched 
-    let newHashedPassword=await hash(newPassword,10);
+});
 
-    //set newpassword to database
-    await UserTypeModel.findByIdAndUpdate(userObj._id,{$set:{password:newHashedPassword}})
-    //return response
-    res.status(200).json({message:"password changed successfully"})
-
-
-})
+// Change Password
+commonRouter.put('/change-password', async (req, res) => {
+    try {
+        let { email, currentPassword, newPassword } = req.body;
+        let userObj = await UserTypeModel.findOne({ email: email });
+        if (!userObj) {
+            return res.status(401).json({ message: "User not found" });
+        }
+        let isMatched = bcrypt.compareSync(currentPassword, userObj.password);
+        if (!isMatched) {
+            return res.status(401).json({ message: "Old Password is invalid" });
+        }
+        let salt = bcrypt.genSaltSync(10);
+        let newHashedPassword = bcrypt.hashSync(newPassword, salt);
+        await UserTypeModel.findByIdAndUpdate(userObj._id, { $set: { password: newHashedPassword } });
+        res.status(200).json({ message: "Password changed successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Error changing password", error: err.message });
+    }
+});

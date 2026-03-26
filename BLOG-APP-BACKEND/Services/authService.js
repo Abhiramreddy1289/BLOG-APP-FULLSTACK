@@ -1,62 +1,95 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { UserTypeModel } from "../models/UserModel.js";
-import {config} from 'dotenv'
-config()
+import { config } from 'dotenv';
+config();
 
-//register function
+// Register function
 export const register = async (userObj) => {
-  //Create document
-  const userDoc = new UserTypeModel(userObj);
-  //validate for emprty passwords
-  await userDoc.validate();
-  //hash and replace plain password
-  userDoc.password = await bcrypt.hash(userDoc.password, 10);
-  //save
-  const created = await userDoc.save();
-  //convert document to object to remove password
-  const newUserObj = created.toObject();
-  //remove password
-  delete newUserObj.password;
-  //return user obj without password
-  return newUserObj;
+    try {
+        // Ensure role is set if provided in object or use the one passed
+        const userDoc = new UserTypeModel(userObj);
+        
+        // Manual validation
+        await userDoc.validate();
+        
+        // Hash password using bcryptjs
+        const salt = bcrypt.genSaltSync(10);
+        userDoc.password = bcrypt.hashSync(userDoc.password, salt);
+        
+        // Save
+        const created = await userDoc.save();
+        
+        const newUserObj = created.toObject();
+        delete newUserObj.password;
+        
+        return newUserObj;
+    } catch (err) {
+        console.error("AuthService Register Error:", err);
+        throw err;
+    }
 };
 
-//authenticate function
-export const authenticate = async ({ email, password}) => {
-    //check user with email & role
-  const user = await UserTypeModel.findOne({ email});
-  if (!user) {
-    const err = new Error("Invalid email");
-    err.status = 401;
-    throw err;
-  }
-  //if user valid ,but blocked by admin
+// Authenticate function
+export const authenticate = async ({ email, password }) => {
+    try {
+        const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.trim();
+        const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD?.trim();
 
-  //compare passwords
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) {
-    const err = new Error("Invalid password");
-    err.status = 401;
-    throw err;
-  }
+        // Check if it's the constant admin
+        if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+            const token = jwt.sign(
+                { userId: "admin-id", role: "ADMIN", email: ADMIN_EMAIL },
+                process.env.JWT_SECRET,
+                { expiresIn: "1h" }
+            );
 
-  //check isActive state
-  if(user.isActive===false){
-    const err=new Error("Your account blocked. please contact admin");
-    err.status=403;
-    throw err;
-  }
+            return {
+                token,
+                user: {
+                    _id: "admin-id",
+                    firstName: "System",
+                    lastName: "Admin",
+                    email: ADMIN_EMAIL,
+                    role: "ADMIN",
+                    isActive: true
+                }
+            };
+        }
 
-  //generate token
-  const token = jwt.sign({ userId: user._id, 
-    role: user.role, email: user.email }, 
-    process.env.JWT_SECRET, {
-    expiresIn: "1h",
-  });
+        const user = await UserTypeModel.findOne({ email });
+        if (!user) {
+            const err = new Error("Invalid email");
+            err.status = 401;
+            throw err;
+        }
 
-  const userObj = user.toObject();
-  delete userObj.password;
+        if (user.isActive === false) {
+            const err = new Error("Your account is blocked. Please contact admin.");
+            err.status = 403;
+            throw err;
+        }
 
-  return { token, user: userObj };
+        // Compare using bcryptjs
+        const isMatch = bcrypt.compareSync(password, user.password);
+        if (!isMatch) {
+            const err = new Error("Invalid password");
+            err.status = 401;
+            throw err;
+        }
+
+        const token = jwt.sign(
+            { userId: user._id, role: user.role, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
+        );
+
+        const userObj = user.toObject();
+        delete userObj.password;
+
+        return { token, user: userObj };
+    } catch (err) {
+        console.error("AuthService Authenticate Error:", err);
+        throw err;
+    }
 };

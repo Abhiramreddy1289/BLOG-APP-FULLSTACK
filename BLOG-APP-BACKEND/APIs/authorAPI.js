@@ -1,21 +1,37 @@
 
 import exp from "express";
-import { authenticate, register } from "../services/authService.js";
+import { authenticate, register } from "../Services/authService.js";
 import { UserTypeModel } from "../models/UserModel.js";
 import { ArticleModel } from "../models/ArticleModel.js";
 import { checkAuthor } from "../middlewares/checkAuthor.js";
 import { verifyToken } from "../middlewares/validateToken.js";
+import { upload, uploadToCloudinary, cloudinary } from '../cloudinary/cloudinary.js'
 
 export const authorRoute = exp.Router();
 
 //Register author(public)
-authorRoute.post("/users", async (req, res) => {
-  //get user obj from req
-  let userObj = req.body;
-  //call register
-  const newUserObj = await register({ ...userObj, role: "AUTHOR" });
-  //send res
-  res.status(201).json({ message: "authroe created", payload: newUserObj });
+authorRoute.post("/users", upload.single("profilePic"), async (req, res, next) => {
+  let cloudinaryResult;
+  try {
+    let userObj = req.body;
+    // Step 1: upload image to cloudinary from memoryStorage (if exists)
+    if (req.file) {
+      cloudinaryResult = await uploadToCloudinary(req.file.buffer);
+    }
+    // Step 2: call existing register()
+    const newUserObj = await register({
+      ...userObj,
+      role: "AUTHOR",
+      profileImageUrl: cloudinaryResult?.secure_url,
+    });
+    res.status(201).json({ message: "author created", payload: newUserObj });
+  } catch (err) {
+    // Step 3: rollback
+    if (cloudinaryResult?.public_id) {
+      await cloudinary.uploader.destroy(cloudinaryResult.public_id);
+    }
+    next(err);
+  }
 });
 //authenticate author(public)
 // authorRoute.post("/authenticate", async (req, res) => {

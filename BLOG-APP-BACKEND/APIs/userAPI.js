@@ -1,23 +1,53 @@
 import exp from 'express'
 import { ArticleModel } from '../models/ArticleModel.js'
-import { register,authenticate } from '../services/authService.js'
+import { register,authenticate } from '../Services/authService.js'
 import { verifyToken } from '../middlewares/validateToken.js'
 import { UserTypeModel } from '../models/UserModel.js'
+import { upload, uploadToCloudinary, cloudinary } from '../cloudinary/cloudinary.js'
 
 
 export const userRoute = exp.Router()
 
 
 // Register USER
-userRoute.post('/users', async(req, res) => {
-    //get the userObj
-    let userObj = req.body
-    //call the register
-    //you should assign the role here
-    const newUserObj=await register({...userObj,role:"USER"})
-    //send response
-    res.status(201).json({ message: "user registered successfully" })
-})
+userRoute.post(
+        "/users",
+        upload.single("profilePic"),
+        async (req, res, next) => {
+        let cloudinaryResult;
+
+            try {
+                let userObj = req.body;
+
+                //  Step 1: upload image to cloudinary from memoryStorage (if exists)
+                if (req.file) {
+                cloudinaryResult = await uploadToCloudinary(req.file.buffer);
+                }
+
+                // Step 2: call existing register()
+                const newUserObj = await register({
+                ...userObj,
+                role: "USER",
+                profileImageUrl: cloudinaryResult?.secure_url,
+                });
+
+                res.status(201).json({
+                message: "user created",
+                payload: newUserObj,
+                });
+
+            } catch (err) {
+
+                // Step 3: rollback 
+                if (cloudinaryResult?.public_id) {
+                await cloudinary.uploader.destroy(cloudinaryResult.public_id);
+                }
+
+                next(err); // send to your error middleware
+            }
+
+        }
+        );
 
 
 // read all articles

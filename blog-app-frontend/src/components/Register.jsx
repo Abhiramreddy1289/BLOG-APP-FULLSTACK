@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useState, useEffect } from "react";
 
 function Register() {
   const {
@@ -9,28 +10,50 @@ function Register() {
     handleSubmit,
     formState: { errors },
     reset,
+    setError,
+    clearErrors,
   } = useForm();
   const navigate = useNavigate();
+  const [preview, setPreview] = useState(null);
 
-  const onSubmit = async (data) => {
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
+
+  const onSubmit = async (newUser) => {
     try {
-      const endpoint =
-        data.role === "AUTHOR"
-          ? "http://localhost:4000/author-api/users"
-          : "http://localhost:4000/user-api/users";
-      
-      const payload = { ...data };
-      // The backend API hardcodes the role, but we need to choose the endpoint.
-      // We don't strictly need to send the role in the body if the backend ignores it/overwrites it,
-      // but the model requires it.
-      // userAPI: adds role:"USER"
-      // authorAPI: adds role:"AUTHOR"
-      
-      const res = await axios.post(endpoint, payload);
-      
+      let endpoint = "http://localhost:4000/user-api/users";
+      if (newUser.role === "AUTHOR") {
+        endpoint = "http://localhost:4000/author-api/users";
+      } else if (newUser.role === "ADMIN") {
+        endpoint = "http://localhost:4000/admin-api/register";
+      }
+
+      // Create form data object
+      const formData = new FormData();
+      //get user object
+      let { role, profilePic, ...userObj } = newUser;
+      //add all fields except profilePic to FormData object
+      Object.keys(userObj).forEach((key) => {
+        formData.append(key, userObj[key]);
+      });
+      // add profilePic to Formdata object
+      formData.append("profilePic", profilePic[0]);
+
+      const res = await axios.post(endpoint, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
       if (res.status === 201) {
         toast.success("Registration successful! Please login.");
         reset();
+        setPreview(null);
         navigate("/login");
       }
     } catch (err) {
@@ -44,7 +67,7 @@ function Register() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-gray-100">
+    <div className="flex min-h-[calc(100vh-80px)] items-center justify-center bg-gray-100 py-10">
       <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
         <h2 className="mb-6 text-center text-2xl font-bold text-gray-800">
           Register
@@ -104,6 +127,55 @@ function Register() {
             />
             {errors.password && (
               <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
+            )}
+          </div>
+
+          {/* Profile Picture */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              Profile Picture
+            </label>
+            <input
+              type="file"
+              accept="image/png, image/jpeg"
+              {...register("profilePic")}
+              onChange={(e) => {
+                //get image file
+                const file = e.target.files[0];
+                // validation for image format
+                if (file) {
+                  if (!["image/jpeg", "image/png"].includes(file.type)) {
+                    setError("profilePic", { message: "Only JPG or PNG allowed" });
+                    setPreview(null);
+                    return;
+                  }
+                  //validation for file size
+                  if (file.size > 2 * 1024 * 1024) {
+                    setError("profilePic", { message: "File size must be less than 2MB" });
+                    setPreview(null);
+                    return;
+                  }
+                  //Converts file → temporary browser URL(create preview URL)
+                  const previewUrl = URL.createObjectURL(file);
+                  setPreview(previewUrl);
+                  clearErrors("profilePic");
+                } else {
+                  setPreview(null);
+                }
+              }}
+              className="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+            {errors.profilePic && (
+              <p className="mt-1 text-xs text-red-500">{errors.profilePic.message}</p>
+            )}
+            {preview && (
+              <div className="mt-3 flex justify-center">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-24 h-24 object-cover rounded-full border"
+                />
+              </div>
             )}
           </div>
 

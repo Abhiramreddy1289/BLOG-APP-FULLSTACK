@@ -88,7 +88,7 @@ function Home() {
                   </p>
                   <div className="flex items-center gap-3 border-t pt-4">
                     <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
-                        {article.author?.firstName[0]}
+                        {article.author?.firstName ? article.author.firstName[0] : "?"}
                     </div>
                     <span className="text-xs font-medium text-gray-700">
                       {article.author?.firstName} {article.author?.lastName}
