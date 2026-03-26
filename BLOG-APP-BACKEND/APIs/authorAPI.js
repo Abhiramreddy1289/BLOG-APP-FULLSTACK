@@ -96,18 +96,17 @@ authorRoute.put("/articles",verifyToken("AUTHOR"),async (req, res) => {
 });
 
 //delete(soft delete) article(Protected route)
-authorRoute.patch("/articles/:id/status", verifyToken("AUTHOR"), async (req, res) => {
+authorRoute.patch("/articles/:id/status", verifyToken("AUTHOR", "ADMIN"), async (req, res) => {
   const { id } = req.params;
   const { isArticleActive } = req.body;
   // Find article
   const article = await ArticleModel.findById(id); //.populate("author");
-  //console.log(article)
+  
   if (!article) {
     return res.status(404).json({ message: "Article not found" });
   }
 
-  //console.log(req.user.userId,article.author.toString())
-  // AUTHOR can only modify their own articles
+  // AUTHOR can only modify their own articles, ADMIN can modify any
   if (req.user.role === "AUTHOR" && 
     article.author.toString() !== req.user.userId) {
     return res

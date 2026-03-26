@@ -121,10 +121,25 @@ function Header() {
                   Admin Panel
                 </NavLink>
               )}
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-[#6e6e73]">
-                  {currentUser?.firstName}
-                </span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {currentUser?.profileImageUrl ? (
+                    <img 
+                      src={currentUser.profileImageUrl} 
+                      alt="Profile" 
+                      className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                  )}
+                  <span className="text-sm font-medium text-gray-700">
+                    {currentUser?.firstName}
+                  </span>
+                </div>
                 <button onClick={handleLogout} className={primaryBtn}>
                   Logout
                 </button>
