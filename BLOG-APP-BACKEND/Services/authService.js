@@ -7,8 +7,15 @@ config();
 // Register function
 export const register = async (userObj) => {
     try {
-        // Ensure role is set if provided in object or use the one passed
-        const userDoc = new UserTypeModel(userObj);
+        // Extract only the fields allowed by the schema to prevent "strict:throw" errors
+
+        const { firstName, lastName, email, password, role, profileImageUrl } =  userObj;
+        
+        const filteredUserObj = { firstName, lastName, email, password, role,   profileImageUrl };
+
+        const userDoc = new UserTypeModel(filteredUserObj); 
+
+
         
         // Manual validation
         await userDoc.validate();

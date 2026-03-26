@@ -30,6 +30,12 @@ export const upload = multer({
 });
 
 export const uploadToCloudinary = (buffer) => {
+  // Gracefully handle missing Cloudinary credentials
+  if (!process.env.CLOUD_NAME || !process.env.API_KEY || !process.env.API_SECRET) {
+    console.warn("Cloudinary credentials missing. Skipping image upload.");
+    return Promise.resolve(null);
+  }
+
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       { folder: "blog_users" },
